@@ -45,4 +45,92 @@ foreach my $func (qw(printf sprintf)) {
 	 "POSIX::$func for 0 arguments gives expected error");
 }
 
+# Tests which demonstrate that, where the POSIX.pod documentation claims that
+# the POSIX function performs the same as the equivalent builtin function,
+# that is actually so (assuming that the POSIX::* function is provided an
+# explicit argument).
+
+my $val;
+
+{
+    # abs
+    $val = -3;
+    is(abs($val), POSIX::abs($val),
+        'abs() and POSIX::abs() match when each is provided with an explicit value');
+}
+
+{
+    # alarm
+    my ($start_time, $end_time, $core_msg, $posix_msg);
+
+    $val = 2;
+    local $@;
+    eval {
+        local $SIG{ALRM} = sub { $end_time = time; die "ALARM!\n" };
+        $start_time = time;
+        alarm $val;
+
+        # perlfunc recommends against using sleep in combination with alarm.
+        1 while (($end_time = time) - $start_time < 6);
+        alarm 0;
+    };
+    alarm 0;
+    $core_msg = $@;
+
+    local $@;
+    eval {
+        local $SIG{ALRM} = sub { $end_time = time; die "ALARM!\n" };
+        $start_time = time;
+        POSIX::alarm($val);
+
+        # perlfunc recommends against using sleep in combination with POSIX::alarm.
+        1 while (($end_time = time) - $start_time < 6);
+        POSIX::alarm(0);
+    };
+    POSIX::alarm(0);
+    $posix_msg = $@;
+
+    is($posix_msg, $core_msg,
+        "alarm() and POSIX::alarm() match when each is provided with an explicit value");
+}
+
+{
+    # atan2
+    my ($y, $x) = (3, 1);
+    is(POSIX::atan2($y, $x), atan2($y, $x),
+        "atan2() and POSIX::atan2() match; need 2 args");
+}
+
+{
+    # chdir
+    require File::Spec;
+
+    my $curdir = File::Spec->curdir();
+    my $tdir = File::Spec->tmpdir();
+
+    my ($coredir, $posixdir);
+
+    chdir($tdir) or die "Unable to change to a different starting directory";
+    chdir($curdir);
+    $coredir = File::Spec->curdir();
+
+    chdir($tdir) or die "Unable to change to a different starting directory";
+    POSIX::chdir($curdir);
+    $posixdir = File::Spec->curdir();
+
+    is($posixdir, $coredir,
+        "chdir() and POSIX::chdir() match when each is provided with an explicit value");
+}
+
+{
+	# localtime
+    my (@lt, @plt);
+
+    $val = 300_000;
+    @lt = localtime($val);
+    @plt = POSIX::localtime($val);
+    is_deeply(\@plt, \@lt,
+	    'localtime() and POSIX::localtime() match when each is provided explicit value');
+}
+
 done_testing();
